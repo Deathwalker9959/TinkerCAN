@@ -1,0 +1,19 @@
+# Visual Studio / .NET
+.vs/
+**/bin/
+**/obj/
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build, publish, and local SDK state
+publish/
+.dotnet-home/
+**/.dotnet/
+**/local-nuget/
+
+# OS/editor noise
+Thumbs.db
+Desktop.ini
