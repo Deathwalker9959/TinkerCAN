@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:LINGui.ViewModels"
+        xmlns:conv="using:LINGui.Converters"
+        xmlns:views="using:LINGui.Views"
+        x:Class="LINGui.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Width="1100" Height="780"
+        MinWidth="800" MinHeight="600"
+        Title="{Binding Title}">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="DarkBg">#1C1C1C</SolidColorBrush>
+        <SolidColorBrush x:Key="DarkFg">#E0E0E0</SolidColorBrush>
+        <conv:StatusColorConverter x:Key="StatusColorConverter"/>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- Menu -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_New Config" Command="{Binding NewConfigCommand}" InputGesture="Ctrl+N"/>
+                <MenuItem Header="_Open Config..." Command="{Binding OpenConfigCommand}" CommandParameter="{Binding $parent[Window]}" InputGesture="Ctrl+O"/>
+                <MenuItem Header="_Save Config..." Command="{Binding SaveConfigCommand}" CommandParameter="{Binding $parent[Window]}" InputGesture="Ctrl+S"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="OnExitClick"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Log Panel (Bottom) -->
+        <Grid DockPanel.Dock="Bottom" Height="200" Background="{StaticResource DarkBg}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Log TextBox -->
+            <TextBox Grid.Row="0" Text="{Binding LogText}" IsReadOnly="True" AcceptsReturn="True"
+                     FontFamily="Consolas" FontSize="11"
+                     Background="{StaticResource DarkBg}" Foreground="#E0E0E0"
+                     BorderThickness="0" Padding="4"
+                     TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+
+            <!-- Log Controls -->
+            <Border Grid.Row="1" Background="#252526" Padding="4,2">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Clear" Command="{Binding ClearLogCommand}" Width="60"/>
+                    <CheckBox Content="Auto-scroll" IsChecked="{Binding AutoScroll}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Separator DockPanel.Dock="Bottom" Height="4" Background="#3E3E42"/>
+
+        <!-- Main Content: Tabs -->
+        <TabControl>
+            <TabItem Header="LIN">
+                <views:LinView DataContext="{Binding LinViewModel}"/>
+            </TabItem>
+            <TabItem Header="CAN / SLCAN">
+                <views:CanView DataContext="{Binding CanViewModel}"/>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

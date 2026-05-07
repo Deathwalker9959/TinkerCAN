@@ -4,6 +4,8 @@ Fast LIN and CAN fuzzing, probing, replay, and signal generation for real hardwa
 
 TinkerCAN was built out of a practical need: existing tools were too slow, too opaque, or too awkward when the job was to brute-force a bus, enumerate unknown IDs quickly, keep background traffic running, and mutate payloads in real time. The original `LINTest-M` software was useful as a reference, but it is poorly documented and not well suited for aggressive discovery workflows. TinkerCAN exists to make that work fast.
 
+![Demo](media/cast.gif)
+
 ## Why This Exists
 
 When you are exploring an undocumented device or reverse-engineering traffic, the bottlenecks are usually not the bus itself. The bottlenecks are the tools:
@@ -29,10 +31,15 @@ The goal is simple:
 
 ## What TinkerCAN Is
 
-TinkerCAN is a Windows-based toolset with two applications:
+TinkerCAN is a cross-platform toolset built on .NET 10 with two applications:
 
-- `gui/`: interactive desktop UI for fast bus exploration, brute-forcing, replay, logging, and saved configs
-- `cli/`: LIN command-line utility for scripted probing and quick terminal-driven work
+- **GUI**: Avalonia-based desktop UI for fast bus exploration, brute-forcing, replay, logging, and saved configs (Linux/Mac/Windows)
+- **CLI**: LIN command-line utility for scripted probing and quick terminal-driven work
+
+The architecture separates protocol logic into reusable libraries:
+
+- **TinkerCAN.Lin**: LIN 2.x protocol, checksum calculation, modifier engine
+- **TinkerCAN.Can**: SLCAN protocol, CANFD frame handling, ASCII parser
 
 This repository intentionally does not include `LINTest-M`. That project was reference material during development, not part of TinkerCAN itself.
 
@@ -198,58 +205,75 @@ Available commands:
 
 List serial ports:
 
-```powershell
-dotnet run --project .\cli -- ports
+```bash
+dotnet run --project src/TinkerCAN.Cli -- ports
 ```
 
 Send a LIN frame:
 
-```powershell
-dotnet run --project .\cli -- --port COM3 send --id 0x22 --data "01 02 03 04" --len 4 --cs v2
+```bash
+dotnet run --project src/TinkerCAN.Cli -- --port /dev/ttyACM0 send --id 0x22 --data "01 02 03 04" --len 4 --cs v2
 ```
 
 Read a slave response:
 
-```powershell
-dotnet run --project .\cli -- --port COM3 read --id 0x3C --len 8
+```bash
+dotnet run --project src/TinkerCAN.Cli -- --port /dev/ttyACM0 read --id 0x3C --len 8
 ```
 
 Brute-force all LIN IDs and print only responders:
 
-```powershell
-dotnet run --project .\cli -- --port COM3 brute --type read --rx-only --delay 100
+```bash
+dotnet run --project src/TinkerCAN.Cli -- --port /dev/ttyACM0 brute --type read --rx-only --delay 100
 ```
 
 Sweep one byte through a value range:
 
-```powershell
-dotnet run --project .\cli -- --port COM3 sweep --id 0x22 --pos 0 --lo 0x00 --hi 0xFF --rx-only
+```bash
+dotnet run --project src/TinkerCAN.Cli -- --port /dev/ttyACM0 sweep --id 0x22 --pos 0 --lo 0x00 --hi 0xFF --rx-only
 ```
 
 Open the interactive shell:
 
-```powershell
-dotnet run --project .\cli -- --port COM3 interactive
+```bash
+dotnet run --project src/TinkerCAN.Cli -- --port /dev/ttyACM0 interactive
 ```
 
 ## Build
 
-```powershell
-dotnet restore .\TinkerCAN.sln
-dotnet build .\TinkerCAN.sln
+```bash
+dotnet restore TinkerCAN.sln
+dotnet build TinkerCAN.sln
 ```
 
 ## Run
 
-```powershell
-dotnet run --project .\gui
-dotnet run --project .\cli -- --help
+GUI:
+```bash
+dotnet run --project src/TinkerCAN.Gui
 ```
+
+CLI:
+```bash
+dotnet run --project src/TinkerCAN.Cli -- --help
+```
+
+On Linux, add your user to the `dialout` group for serial port access:
+```bash
+sudo usermod -a -G dialout $USER
+```
+Log out and back in, or use `sg dialout -c "./src/TinkerCAN.Gui/bin/Debug/net10.0/gui"` to run without logout.
 
 ## Repository Layout
 
 ```text
 TinkerCAN.sln
-gui/
-cli/
+global.json
+src/
+  TinkerCAN.Gui/      # Avalonia UI, MVVM ViewModels
+  TinkerCAN.Cli/      # CLI tool
+  TinkerCAN.Lin/      # LIN protocol library
+  TinkerCAN.Can/      # CAN/SLCAN library
+media/
+  cast.webm           # Demo video
 ```

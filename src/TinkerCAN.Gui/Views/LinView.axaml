@@ -1,0 +1,198 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:LINGui.ViewModels"
+             x:Class="LINGui.Views.LinView"
+             x:DataType="vm:LinViewModel">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Connection Bar -->
+        <Border Grid.Row="0" Background="#2D2D30" Padding="8,4" Margin="4">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Port:" VerticalAlignment="Center" Foreground="#E0E0E0"/>
+                <ComboBox ItemsSource="{Binding $parent[Window].DataContext.Ports}"
+                          SelectedItem="{Binding $parent[Window].DataContext.SelectedPort}" Width="120"/>
+                <Button Content="↻" Command="{Binding $parent[Window].DataContext.RefreshPortsCommand}" Width="32"/>
+
+                <TextBlock Text="LIN baud:" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#E0E0E0"/>
+                <TextBox Text="{Binding $parent[Window].DataContext.LinBaud}" Width="80"/>
+
+                <Button Content="Connect" Command="{Binding $parent[Window].DataContext.ConnectCommand}"
+                        IsEnabled="{Binding !$parent[Window].DataContext.IsConnected}" Width="80"/>
+                <Button Content="Disconnect" Command="{Binding $parent[Window].DataContext.DisconnectCommand}"
+                        IsEnabled="{Binding $parent[Window].DataContext.IsConnected}" Width="90"/>
+
+                <TextBlock Text="{Binding $parent[Window].DataContext.StatusText}"
+                           VerticalAlignment="Center" Margin="12,0,0,0" Foreground="Gray"/>
+            </StackPanel>
+        </Border>
+
+    <TabControl Grid.Row="1">
+        <!-- Signal Tab -->
+        <TabItem Header="Signal">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <!-- Frame Config -->
+                <Border Grid.Row="0" Margin="4" Padding="8">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="ID (hex):" VerticalAlignment="Center" Width="80"/>
+                            <TextBox Text="{Binding SigId}" Width="60"/>
+                            <TextBlock Text="{Binding SigPid, StringFormat='PID={0}'}" VerticalAlignment="Center" Foreground="Gray"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Len:" VerticalAlignment="Center" Width="80"/>
+                            <TextBox Text="{Binding SigLen}" Width="80"/>
+                            <TextBlock Text="CS:" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <RadioButton Content="V2 enhanced" IsChecked="{Binding SigV2}" GroupName="SigCS"/>
+                            <RadioButton Content="V1 classic" IsChecked="{Binding !SigV2}" GroupName="SigCS"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="D0:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD0}" Width="40"/>
+                            <TextBlock Text="D1:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD1}" Width="40"/>
+                            <TextBlock Text="D2:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD2}" Width="40"/>
+                            <TextBlock Text="D3:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD3}" Width="40"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="D4:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD4}" Width="40"/>
+                            <TextBlock Text="D5:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD5}" Width="40"/>
+                            <TextBlock Text="D6:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD6}" Width="40"/>
+                            <TextBlock Text="D7:" VerticalAlignment="Center" Width="30"/>
+                            <TextBox Text="{Binding SigD7}" Width="40"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Modifier -->
+                <Border Grid.Row="1" Margin="4,0,4,4" Padding="8">
+                    <TextBox Text="{Binding SigModifier}" AcceptsReturn="True" FontFamily="Consolas"/>
+                </Border>
+
+                <!-- Generator -->
+                <Border Grid.Row="2" Margin="4,0,4,4" Padding="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Interval:" VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding SigIntervalMs}" Width="80"/>
+                        <TextBlock Text="ms" VerticalAlignment="Center"/>
+                        <Button Content="Send Once" Command="{Binding SendOnceCommand}" Width="90"/>
+                        <Button Content="▶ Start" Command="{Binding StartSingleCommand}" IsEnabled="{Binding !SigRunning}" Width="80"/>
+                        <Button Content="■ Stop" Command="{Binding StopSingleCommand}" IsEnabled="{Binding SigRunning}" Width="80"/>
+                        <TextBlock Text="{Binding SigCount, StringFormat='Sent: {0}'}" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="Gray"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- Multi-Signal Tab -->
+        <TabItem Header="Multi-Signal">
+            <Grid RowDefinitions="Auto,*">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4">
+                    <Button Content="+ Add" Command="{Binding AddMultiRowCommand}" Width="70"/>
+                    <Button Content="− Remove" Command="{Binding RemoveMultiRowCommand}" CommandParameter="{Binding #MultiGrid.SelectedItem}" Width="80"/>
+                    <Button Content="▶ Start All" Command="{Binding StartMultiCommand}" IsEnabled="{Binding !MultiRunning}" Width="90"/>
+                    <Button Content="■ Stop All" Command="{Binding StopMultiCommand}" IsEnabled="{Binding MultiRunning}" Width="90"/>
+                    <TextBlock Text="{Binding MultiStatus}" VerticalAlignment="Center" Foreground="Gray"/>
+                </StackPanel>
+
+                <DataGrid Grid.Row="1" Name="MultiGrid" ItemsSource="{Binding MultiRows}" AutoGenerateColumns="False"
+                          CanUserReorderColumns="False" CanUserResizeColumns="True" GridLinesVisibility="All">
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="On" Binding="{Binding Enabled}" Width="50"/>
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"/>
+                        <DataGridTextColumn Header="Data (hex)" Binding="{Binding Data}" Width="*"/>
+                        <DataGridTextColumn Header="Len" Binding="{Binding Length}" Width="50"/>
+                        <DataGridTextColumn Header="CS" Binding="{Binding Checksum}" Width="50"/>
+                        <DataGridTextColumn Header="ms" Binding="{Binding IntervalMs}" Width="60"/>
+                        <DataGridTextColumn Header="Modifier" Binding="{Binding Modifier}" Width="150"/>
+                        <DataGridTextColumn Header="Sent" Binding="{Binding SentCount}" IsReadOnly="True" Width="70"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </TabItem>
+
+        <!-- Brute Force Tab -->
+        <TabItem Header="Brute Force">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+                <!-- Config -->
+                <Border Grid.Row="0" Margin="4" Padding="8">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="ID from:" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding BfStart}" Width="50"/>
+                            <TextBlock Text="to:" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding BfEnd}" Width="50"/>
+                            <TextBlock Text="Step:" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <TextBox Text="{Binding BfStep}" Width="50"/>
+                            <TextBlock Text="(hex)" VerticalAlignment="Center"/>
+                            <TextBlock Text="Delay:" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <TextBox Text="{Binding BfDelay}" Width="70"/>
+                            <TextBlock Text="ms" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="RX Timeout:" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding BfRxTimeout}" Width="70"/>
+                            <TextBlock Text="ms" VerticalAlignment="Center"/>
+                            <TextBlock Text="DLC:" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <TextBox Text="{Binding BfDlc}" Width="70"/>
+                            <TextBlock Text="CS:" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <RadioButton Content="V2" IsChecked="{Binding BfV2}" GroupName="BfCS"/>
+                            <RadioButton Content="V1" IsChecked="{Binding !BfV2}" GroupName="BfCS"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <CheckBox Content="Constant signal:" IsChecked="{Binding BfConstEnabled}"/>
+                            <TextBlock Text="ID:" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding BfConstId}" Width="50"/>
+                            <TextBlock Text="Data:" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding BfConstData}" Width="250"/>
+                            <TextBlock Text="every" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding BfConstMs}" Width="70"/>
+                            <TextBlock Text="ms" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <CheckBox Content="Broadcast (same payload all IDs)" IsChecked="{Binding BfBroadcast}"/>
+                            <TextBlock Text="Data:" VerticalAlignment="Center"/>
+                            <TextBox Text="{Binding BfBroadcastData}" Width="250"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Controls -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="4">
+                    <Button Content="▶ Start" Command="{Binding StartBruteCommand}" IsEnabled="{Binding !BfRunning}" Width="80"/>
+                    <Button Content="■ Stop" Command="{Binding StopBruteCommand}" IsEnabled="{Binding BfRunning}" Width="80"/>
+                    <Button Content="Export CSV" Command="{Binding ExportBruteCommand}" Width="90"/>
+                </StackPanel>
+
+                <!-- Progress -->
+                <ProgressBar Grid.Row="2" Value="{Binding BfProgress}" Minimum="0" Maximum="100" Height="20" Margin="4,0"/>
+
+                <!-- Status -->
+                <TextBlock Grid.Row="3" Text="{Binding BfStatus}" Margin="8,4" Foreground="Gray"/>
+
+                <!-- Results -->
+                <DataGrid Grid.Row="4" ItemsSource="{Binding BruteResults}" AutoGenerateColumns="False"
+                          CanUserReorderColumns="False" CanUserResizeColumns="True" GridLinesVisibility="All" IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"/>
+                        <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="60"/>
+                        <DataGridTextColumn Header="Payload" Binding="{Binding Payload}" Width="*"/>
+                        <DataGridTextColumn Header="Response" Binding="{Binding Response}" Width="80"/>
+                        <DataGridTextColumn Header="Resp Data" Binding="{Binding RespData}" Width="180"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </TabItem>
+    </TabControl>
+    </Grid>
+</UserControl>
