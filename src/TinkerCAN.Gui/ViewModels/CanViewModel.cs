@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TinkerCAN.Core;
 using TinkerCAN.Can;
 using TinkerCAN.Lin;
 
@@ -31,7 +32,7 @@ public partial class CanViewModel : ObservableObject, IDisposable
     private readonly ConcurrentQueue<SLCANProtocol.RxFrame> _canBfRxQ = new();
 
     // Connection
-    [ObservableProperty] private string _selectedCanPort = "";
+    [ObservableProperty] private PortInfo? _selectedCanPort;
     [ObservableProperty] private bool _isCanConnected;
     [ObservableProperty] private string _canStatusText = "Disconnected";
     [ObservableProperty] private int _nomRateIdx = 9;  // 125k
@@ -94,6 +95,9 @@ public partial class CanViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<CanBruteResultVm> BruteResults { get; } = new();
 
+    // Sector viewer
+    public SectorViewerVm SectorViewer { get; } = new();
+
     // Log
     public ObservableCollection<CanLogEntryVm> LogEntries { get; } = new();
     [ObservableProperty] private bool _groupById;
@@ -140,11 +144,11 @@ public partial class CanViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ConnectCan()
     {
-        if (string.IsNullOrWhiteSpace(SelectedCanPort)) { _mainVm.AddLog("Select CAN port.", LogLevel.Error); return; }
+        if (SelectedCanPort == null) { _mainVm.AddLog("Select CAN port.", LogLevel.Error); return; }
 
         try
         {
-            var p = new SerialPort(SelectedCanPort, 115200, Parity.None, 8, StopBits.One)
+            var p = new SerialPort(SelectedCanPort.Name, 115200, Parity.None, 8, StopBits.One)
             {
                 ReadTimeout = 100,
                 WriteTimeout = 500
@@ -153,13 +157,13 @@ public partial class CanViewModel : ObservableObject, IDisposable
 
             lock (_canLock) { _canPort = p; }
             IsCanConnected = true;
-            CanStatusText = $"● {SelectedCanPort}";
+            CanStatusText = $"● {SelectedCanPort.Name}";
 
             _canRxRun = true;
             _canRxThread = new Thread(CanRxLoop) { IsBackground = true, Name = "CanRx" };
             _canRxThread.Start();
 
-            _mainVm.AddLog($"CAN port {SelectedCanPort} connected.", LogLevel.Info);
+            _mainVm.AddLog($"CAN port {SelectedCanPort.Name} connected.", LogLevel.Info);
             OpenCan();
         }
         catch (Exception ex)
@@ -237,6 +241,12 @@ public partial class CanViewModel : ObservableObject, IDisposable
         int id = ParseHexInt(SigId);
         string idStr = FormatId(id, ext);
         AddCanLog("TX", ftype, idStr, DlcOptions[SigDlcIdx], SigData);
+        {
+            var toks = SigData.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var txBytes = new byte[toks.Length];
+            for (int i = 0; i < toks.Length; i++) byte.TryParse(toks[i], System.Globalization.NumberStyles.HexNumber, null, out txBytes[i]);
+            SectorViewer.UpdateFrame(idStr, txBytes);
+        }
     }
 
     [RelayCommand]
@@ -277,6 +287,8 @@ public partial class CanViewModel : ObservableObject, IDisposable
 
             lock (_canLock) { if (_canPort?.IsOpen == true) { _canPort.Write(f, 0, f.Length); TxCount++; } }
             AddCanLog("TX", ftype, FormatId(id, ext), dlcVal.ToString(), FormatData(_canTxData, fd, dlcVal));
+            int byteLen = fd ? SLCANProtocol.FdDlcToBytes(SLCANProtocol.BytesToFdDlc(dlcVal)) : Math.Min(dlcVal, 8);
+            SectorViewer.UpdateFrame(FormatId(id, ext), _canTxData.Take(byteLen).ToArray());
         }, null, 0, ms);
     }
 
@@ -333,8 +345,6 @@ public partial class CanViewModel : ObservableObject, IDisposable
         for (int i = 0; i < MultiRows.Count; i++)
         {
             var row = MultiRows[i];
-            if (!row.Enabled) continue;
-
             row.GridRow = i;
             row.SentCount = 0;
             var bytes = row.Data.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -345,7 +355,7 @@ public partial class CanViewModel : ObservableObject, IDisposable
             _activeMultiRows.Add(row);
         }
 
-        if (_activeMultiRows.Count == 0) { _mainVm.AddLog("No enabled rows.", LogLevel.Warn); return; }
+        if (_activeMultiRows.Count == 0 || !_activeMultiRows.Any(r => r.Enabled)) { _mainVm.AddLog("No enabled rows.", LogLevel.Warn); return; }
 
         _canMultiTimer = new System.Threading.Timer(CanMultiTick, null, 0, 5);
         MultiRunning = true;
@@ -368,6 +378,7 @@ public partial class CanViewModel : ObservableObject, IDisposable
         long now = Environment.TickCount64;
         foreach (var sig in _activeMultiRows)
         {
+            if (!sig.Enabled) continue;
             if (now < sig.NextMs) continue;
             sig.NextMs = now + sig.IntervalMs;
 
@@ -387,6 +398,10 @@ public partial class CanViewModel : ObservableObject, IDisposable
             bool ext = typeIdx == 1 || typeIdx == 3 || typeIdx == 5 || typeIdx == 7;
             bool fd = typeIdx >= 4;
             AddCanLog("TX", GetDisplayType(typeIdx), FormatId(id, ext), dlc.ToString(), FormatData(sig.WorkingData, fd, dlc));
+            {
+                int byteLen = fd ? SLCANProtocol.FdDlcToBytes(SLCANProtocol.BytesToFdDlc(dlc)) : Math.Min(dlc, 8);
+                SectorViewer.UpdateFrame(FormatId(id, ext), sig.WorkingData.Take(byteLen).ToArray());
+            }
 
             int gridRow = sig.GridRow;
             long cnt = sig.SentCount;
@@ -616,6 +631,8 @@ public partial class CanViewModel : ObservableObject, IDisposable
                     string idStr = frame.Extended ? frame.Id.ToString("X8") : frame.Id.ToString("X3");
                     string dStr = string.Join(" ", frame.Data.Take(frame.ByteLen).Select(x => x.ToString("X2")));
                     AddCanLog("RX", frame.Type, idStr, frame.Dlc.ToString("X"), dStr);
+                    if (frame.ByteLen > 0)
+                        SectorViewer.UpdateFrame(idStr, frame.Data.Take(frame.ByteLen).ToArray());
                 }
                 else if (line.StartsWith("V") || line.StartsWith("E"))
                 {
@@ -687,5 +704,6 @@ public partial class CanViewModel : ObservableObject, IDisposable
         _canBfCts?.Cancel();
         _canRxRun = false;
         _canPort?.Dispose();
+        SectorViewer.Dispose();
     }
 }

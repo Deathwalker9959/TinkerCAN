@@ -196,8 +196,6 @@ public partial class LinViewModel : ObservableObject, IDisposable
         for (int i = 0; i < MultiRows.Count; i++)
         {
             var row = MultiRows[i];
-            if (!row.Enabled) continue;
-
             row.GridRow = i;
             row.SentCount = 0;
             var bytes = row.Data.Split(' ', StringSplitOptions.RemoveEmptyEntries)
@@ -207,7 +205,7 @@ public partial class LinViewModel : ObservableObject, IDisposable
             _activeMultiRows.Add(row);
         }
 
-        if (_activeMultiRows.Count == 0) { _mainVm.AddLog("No enabled rows.", LogLevel.Warn); return; }
+        if (_activeMultiRows.Count == 0 || !_activeMultiRows.Any(r => r.Enabled)) { _mainVm.AddLog("No enabled rows.", LogLevel.Warn); return; }
 
         _multiTimer = new System.Threading.Timer(MultiTick, null, 0, 5);
         MultiRunning = true;
@@ -232,6 +230,7 @@ public partial class LinViewModel : ObservableObject, IDisposable
 
         foreach (var sig in _activeMultiRows)
         {
+            if (!sig.Enabled) continue;
             if (now < sig.NextMs) continue;
             sig.NextMs = now + sig.IntervalMs;
 

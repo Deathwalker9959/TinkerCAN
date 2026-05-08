@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:LINGui.ViewModels"
+             xmlns:views="using:LINGui.Views"
              x:Class="LINGui.Views.CanView"
              x:DataType="vm:CanViewModel">
 
@@ -9,7 +10,15 @@
         <Border Grid.Row="0" Background="#2D2D30" Padding="8,4" Margin="4">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="Port:" VerticalAlignment="Center" Foreground="#E0E0E0"/>
-                <ComboBox ItemsSource="{Binding SelectedCanPort}" Width="120"/>
+                <ComboBox ItemsSource="{Binding $parent[Window].DataContext.Ports}"
+                          SelectedItem="{Binding SelectedCanPort}" Width="200">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}" FontFamily="Consolas" FontSize="11"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Content="↻" Command="{Binding $parent[Window].DataContext.RefreshPortsCommand}" Width="32"/>
                 <Button Content="Connect" Command="{Binding ConnectCanCommand}" Width="80"/>
                 <Button Content="Disconnect" Command="{Binding DisconnectCanCommand}" Width="90"/>
 
@@ -164,6 +173,11 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
+            </TabItem>
+
+            <!-- Sector Viewer Tab -->
+            <TabItem Header="Sector Viewer">
+                <views:SectorViewerView DataContext="{Binding SectorViewer}"/>
             </TabItem>
 
             <!-- Log Tab -->

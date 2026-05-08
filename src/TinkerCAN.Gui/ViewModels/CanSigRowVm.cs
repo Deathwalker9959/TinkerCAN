@@ -35,4 +35,13 @@ public partial class CanSigRowVm : ObservableObject
         Data = string.Join(" ", WorkingData.AsSpan(0, Math.Min(byteLen, 64)).ToArray().Select(b => b.ToString("X2")));
         _suppressPending = false;
     }
+
+    partial void OnDataChanged(string value)
+    {
+        if (_suppressPending) return;
+        var bytes = value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => { byte.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out byte b); return b; })
+            .Take(64).ToArray();
+        PendingData = bytes;
+    }
 }

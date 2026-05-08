@@ -11,21 +11,21 @@ using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LINGui.Models;
-using LINGui.Services;
+using TinkerCAN.Core;
 
 namespace LINGui.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
     [ObservableProperty] private string _title = "TinkerCAN — LIN / CAN Signal Generator";
-    [ObservableProperty] private string _selectedPort = "";
+    [ObservableProperty] private PortInfo? _selectedPort;
     [ObservableProperty] private string _linBaud = "19200";
     [ObservableProperty] private string _statusText = "Disconnected";
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private bool _autoScroll = true;
     [ObservableProperty] private string _logText = "";
 
-    public ObservableCollection<string> Ports { get; } = new();
+    public ObservableCollection<PortInfo> Ports { get; } = new();
 
     // Tab VMs
     public LinViewModel LinViewModel { get; }
@@ -46,12 +46,11 @@ public partial class MainViewModel : ObservableObject
     private void RefreshPorts()
     {
         Ports.Clear();
-        var ports = PortScanner.List();
-        foreach (var p in ports)
+        foreach (var p in PortScanner.List())
             Ports.Add(p);
 
-        if (Ports.Count > 0 && string.IsNullOrEmpty(SelectedPort))
-            SelectedPort = Ports[0];
+        SelectedPort = Ports.FirstOrDefault(p => p.Name == SelectedPort?.Name) ?? Ports.FirstOrDefault();
+        CanViewModel.SelectedCanPort = Ports.FirstOrDefault(p => p.Name == CanViewModel.SelectedCanPort?.Name) ?? Ports.FirstOrDefault();
 
         AddLog($"Found {Ports.Count} port(s).", LogLevel.Info);
     }
@@ -59,7 +58,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Connect()
     {
-        if (string.IsNullOrWhiteSpace(SelectedPort))
+        if (SelectedPort == null)
         {
             AddLog("No port selected.", LogLevel.Error);
             return;
@@ -71,7 +70,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        AddLog($"--- Connecting {SelectedPort} @ USB=460800 / LIN={baud} ---", LogLevel.Warn);
+        AddLog($"--- Connecting {SelectedPort.Name} @ USB=460800 / LIN={baud} ---", LogLevel.Warn);
 
         await Task.Run(() =>
         {
@@ -81,14 +80,14 @@ public partial class MainViewModel : ObservableObject
                 // DTR probe
                 try
                 {
-                    using var probe = new SerialPort(SelectedPort, 460800, Parity.None, 8, StopBits.One);
+                    using var probe = new SerialPort(SelectedPort.Name, 460800, Parity.None, 8, StopBits.One);
                     probe.DtrEnable = true;
                     probe.Open();
                     System.Threading.Thread.Sleep(50);
                 }
                 catch { }
 
-                p = new SerialPort(SelectedPort, 460800, Parity.None, 8, StopBits.One);
+                p = new SerialPort(SelectedPort.Name, 460800, Parity.None, 8, StopBits.One);
                 p.Encoding = System.Text.Encoding.Default;
                 p.DtrEnable = true;
                 p.ReadTimeout = 500;
@@ -112,8 +111,8 @@ public partial class MainViewModel : ObservableObject
                 LinViewModel.SetPort(p);
 
                 IsConnected = true;
-                StatusText = $"Connected: {SelectedPort}";
-                AddLog($"Ready — {SelectedPort}  USB=460800  LIN={baud}", LogLevel.Warn);
+                StatusText = $"Connected: {SelectedPort.Name}";
+                AddLog($"Ready — {SelectedPort.Name}  USB=460800  LIN={baud}", LogLevel.Warn);
             }
             catch (Exception ex)
             {

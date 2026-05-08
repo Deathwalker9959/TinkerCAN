@@ -35,7 +35,7 @@
             </Grid.RowDefinitions>
 
             <!-- Log TextBox -->
-            <TextBox Grid.Row="0" Text="{Binding LogText}" IsReadOnly="True" AcceptsReturn="True"
+            <TextBox Grid.Row="0" x:Name="LogBox" Text="{Binding LogText}" IsReadOnly="True" AcceptsReturn="True"
                      FontFamily="Consolas" FontSize="11"
                      Background="{StaticResource DarkBg}" Foreground="#E0E0E0"
                      BorderThickness="0" Padding="4"
