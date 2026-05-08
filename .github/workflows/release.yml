@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            gui_artifact: TinkerCAN-gui-linux-x64
+            cli_artifact: TinkerCAN-cli-linux-x64
+          - os: windows-latest
+            rid: win-x64
+            gui_artifact: TinkerCAN-gui-win-x64
+            cli_artifact: TinkerCAN-cli-win-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore TinkerCAN.sln
+
+      - name: Publish GUI
+        run: >
+          dotnet publish src/TinkerCAN.Gui/gui.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish/gui
+
+      - name: Publish CLI
+        run: >
+          dotnet publish src/TinkerCAN.Cli/cli.csproj
+          -c Release
+          -r ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -o publish/cli
+
+      - name: Archive GUI (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd publish/gui
+          tar -czf ../../${{ matrix.gui_artifact }}.tar.gz .
+
+      - name: Archive CLI (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd publish/cli
+          tar -czf ../../${{ matrix.cli_artifact }}.tar.gz .
+
+      - name: Archive GUI (Windows)
+        if: matrix.os == 'windows-latest'
+        run: Compress-Archive -Path publish/gui/* -DestinationPath ${{ matrix.gui_artifact }}.zip
+        shell: pwsh
+
+      - name: Archive CLI (Windows)
+        if: matrix.os == 'windows-latest'
+        run: Compress-Archive -Path publish/cli/* -DestinationPath ${{ matrix.cli_artifact }}.zip
+        shell: pwsh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.rid }}-builds
+          path: |
+            *.tar.gz
+            *.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
